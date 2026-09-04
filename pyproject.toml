@@ -1,0 +1,18 @@
+[project]
+name = "ml-models"
+version = "0.1.0"
+description = "Collection of ML models"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["models/*"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
