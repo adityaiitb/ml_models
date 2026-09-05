@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 from torchvision import datasets, transforms
 import tqdm
 import tyro
@@ -41,30 +42,34 @@ class MNIST(nn.Module):
 
 
 def train_step(
-    model, loss_fn: Callable, optimizer, data: torch.Tensor, target: torch.Tensor
-) -> float:
+    model,
+    loss_fn: Callable,
+    optimizer,
+    data: torch.Tensor,
+    target: torch.Tensor,
+    step_id: int,
+    writer,
+):
     optimizer.zero_grad()
     output = model(data)  # output is logits.
     loss = loss_fn(output, target)  # target can be an index or one-hot vector.
     loss.backward()
     optimizer.step()
-    return loss
+    writer.add_scalar("Loss/train", loss, global_step=step_id)
 
 
-def train_epoch(model, loss_fn: Callable, optimizer, train_loader) -> list[float]:
+def train_epoch(model, loss_fn: Callable, optimizer, train_loader, epoch: int, writer):
     model.train()
-    loss_array = []
-    for (data, target) in tqdm.tqdm(train_loader, desc="Training steps"):
-        loss = train_step(model, loss_fn, optimizer, data, target)
-        loss_array.append(loss.item())
-    return loss_array
+    for idx, (data, target) in enumerate(tqdm.tqdm(train_loader, desc="Train"), 1):
+        step_id = epoch * len(train_loader) + idx
+        loss = train_step(model, loss_fn, optimizer, data, target, step_id, writer)
 
 
-def eval(model, test_loader):
+def eval(model, test_loader, epoch: int, writer):
     model.eval()
     test_loss = 0
     correct = 0
-    for (data, target) in tqdm.tqdm(test_loader, desc="Eval"):
+    for data, target in tqdm.tqdm(test_loader, desc="Eval"):
         pred = model(data)
         test_loss += F.cross_entropy(pred, target, reduction="sum").item()
         pred = torch.argmax(pred, dim=1, keepdims=True)
@@ -74,7 +79,8 @@ def eval(model, test_loader):
     test_loss /= num_items
     accuracy = correct / num_items
 
-    return (test_loss, accuracy)
+    writer.add_scalar("Loss/eval", test_loss, epoch + 1)
+    writer.add_scalar("Accuracy/eval", accuracy, epoch + 1)
 
 
 def main(config: Config) -> None:
@@ -82,11 +88,10 @@ def main(config: Config) -> None:
     loss_fn = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=config.learning_rate)
 
+    writer = SummaryWriter()
+
     transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
-        ]
+        [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
 
     dataset1 = datasets.MNIST(
@@ -102,21 +107,11 @@ def main(config: Config) -> None:
     test_kwargs = {"batch_size": config.batch_size}
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
-    train_loss = []
-    eval_data = []
-    for _ in tqdm.tqdm(range(config.epochs), desc="Training epochs"):
-        loss = train_epoch(model, loss_fn, optimizer, train_loader)
-        train_loss.extend(loss)
-        loss, accuracy = eval(model, test_loader)
-        eval_data.append((loss, accuracy))
+    for epoch in range(config.epochs):
+        train_epoch(model, loss_fn, optimizer, train_loader, epoch, writer)
+        eval(model, test_loader, epoch, writer)
 
-    with open("train.dat", "w") as f:
-        for loss in train_loss:
-            f.write(f"{round(loss, 5)}\n")
-
-    with open("test.dat", "w") as f:
-        for loss, acc in eval_data:
-            f.write(f"{round(loss, 5)} {round(acc, 5)}\n")
+    writer.close()
 
 
 if __name__ == "__main__":
