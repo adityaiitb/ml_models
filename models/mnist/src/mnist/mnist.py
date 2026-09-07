@@ -25,6 +25,8 @@ class MNIST(nn.Module):
         super().__init__()
         self.conv1 = nn.Conv2d(1, 16, 3)
         self.conv2 = nn.Conv2d(16, 32, 3)
+        self.dout1 = nn.Dropout(0.25)
+        self.dout2 = nn.Dropout(0.5)
         self.fc1 = nn.Linear(4608, 128)
         self.fc2 = nn.Linear(128, 10)
 
@@ -34,9 +36,11 @@ class MNIST(nn.Module):
         x = self.conv2(x)
         x = F.relu(x)
         x = F.max_pool2d(x, 2)
+        x = self.dout1(x)
         x = torch.flatten(x, 1)
         x = self.fc1(x)
         x = F.relu(x)
+        x = self.dout2(x)
         x = self.fc2(x)
         return x
 
