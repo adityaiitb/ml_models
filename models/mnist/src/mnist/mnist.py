@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -45,6 +46,25 @@ class MNIST(nn.Module):
         return x
 
 
+def get_data_loaders(config: Config):
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+    )
+
+    data_dir = Path(__file__).parents[4] / "data"
+
+    dataset1 = datasets.MNIST(data_dir, train=True, download=True, transform=transform)
+    dataset2 = datasets.MNIST(data_dir, train=False, download=True, transform=transform)
+
+    train_kwargs = {"batch_size": config.batch_size, "shuffle": True}
+    train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
+
+    test_kwargs = {"batch_size": config.batch_size}
+    test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
+
+    return train_loader, test_loader
+
+
 def train_step(
     model,
     loss_fn: Callable,
@@ -66,7 +86,7 @@ def train_epoch(model, loss_fn: Callable, optimizer, train_loader, epoch: int, w
     model.train()
     for idx, (data, target) in enumerate(tqdm.tqdm(train_loader, desc="Train"), 1):
         step_id = epoch * len(train_loader) + idx
-        loss = train_step(model, loss_fn, optimizer, data, target, step_id, writer)
+        train_step(model, loss_fn, optimizer, data, target, step_id, writer)
 
 
 def eval(model, test_loader, epoch: int, writer):
@@ -91,25 +111,8 @@ def main(config: Config) -> None:
     model = MNIST()
     loss_fn = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=config.learning_rate)
-
+    train_loader, test_loader = get_data_loaders(config)
     writer = SummaryWriter()
-
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-    )
-
-    dataset1 = datasets.MNIST(
-        "../../data", train=True, download=True, transform=transform
-    )
-    dataset2 = datasets.MNIST(
-        "../../data", train=False, download=True, transform=transform
-    )
-
-    train_kwargs = {"batch_size": config.batch_size, "shuffle": True}
-    train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
-
-    test_kwargs = {"batch_size": config.batch_size}
-    test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
     for epoch in range(config.epochs):
         train_epoch(model, loss_fn, optimizer, train_loader, epoch, writer)
