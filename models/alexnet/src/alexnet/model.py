@@ -1,4 +1,4 @@
-"""ResNet18 training."""
+"""AlexNet training."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
