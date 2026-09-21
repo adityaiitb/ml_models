@@ -214,7 +214,7 @@ def main(config: Config):
     model = AlexNetCIFAR10()
     loss_fn = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=config.learning_rate)
-    writer = SummaryWriter()
+    writer = SummaryWriter("runs/alexnet")
     train_loader, test_loader = get_data_loaders(config)
 
     for epoch in range(config.epochs):
