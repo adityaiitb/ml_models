@@ -112,7 +112,7 @@ def main(config: Config) -> None:
     loss_fn = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=config.learning_rate)
     train_loader, test_loader = get_data_loaders(config)
-    writer = SummaryWriter()
+    writer = SummaryWriter("runs/mnist")
 
     for epoch in range(config.epochs):
         train_epoch(model, loss_fn, optimizer, train_loader, epoch, writer)
